@@ -14,7 +14,9 @@ export default function App() {
     <Routes>
       <Route
         path="/login"
-        element={me ? <Navigate to="/" replace /> : <LoginPage onLogin={login} />}
+        element={
+          me ? <Navigate to="/" replace /> : <LoginPage onLogin={login} />
+        }
       />
 
       <Route

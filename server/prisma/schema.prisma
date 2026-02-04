@@ -12,8 +12,6 @@ model User {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([email])
 }
 
 model Client {
@@ -22,7 +20,7 @@ model Client {
 
   razonSocial String
   cuit        String?
-  tipoPersona String?  // "JURIDICA" | "FISICA" (MVP)
+  tipoPersona String? // "JURIDICA" | "FISICA" (MVP)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

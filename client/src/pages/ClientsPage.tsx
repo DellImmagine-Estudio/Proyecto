@@ -1,273 +1,307 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../api";
 import { useNavigate } from "react-router-dom";
 
-type DraftClient = {
+type Client = {
+  id: string;
+  userId: string;
+  razonSocial: string;
+  cuit: string | null;
+  tipoPersona: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type FormState = {
   razonSocial: string;
   cuit: string;
-  tipoPersona: "JURIDICA" | "FISICA";
+  tipoPersona: "JURIDICA" | "FISICA" | "";
 };
 
 export default function ClientsPage() {
   const navigate = useNavigate();
-  const razonRef = useRef<HTMLInputElement | null>(null);
 
-  const [draft, setDraft] = useState<DraftClient>({
+  const [items, setItems] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [q, setQ] = useState("");
+  const query = useMemo(() => q.trim(), [q]);
+
+  const [form, setForm] = useState<FormState>({
     razonSocial: "",
     cuit: "",
-    tipoPersona: "JURIDICA",
+    tipoPersona: "",
   });
 
-  const [query, setQuery] = useState("");
+  // edición inline
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<FormState>({
+    razonSocial: "",
+    cuit: "",
+    tipoPersona: "",
+  });
 
+  // Escape => volver al menú
   useEffect(() => {
-    // autofocus
-    razonRef.current?.focus();
-
     function onKeyDown(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      const typing = tag === "input" || tag === "textarea";
-
-      // ESC: volver al menú (siempre)
-      if (e.key === "Escape") {
-        e.preventDefault();
-        navigate("/");
-        return;
-      }
-
-      // Atajo 1: enfocar Razón Social (solo si no estás escribiendo en otro input)
-      if (!typing && e.key === "1") {
-        e.preventDefault();
-        razonRef.current?.focus();
-        return;
-      }
-
-      // Ctrl+Enter: simular "Crear"
-      if (e.ctrlKey && e.key === "Enter") {
-        e.preventDefault();
-        handleCreatePlaceholder();
-      }
+      if (e.key === "Escape") navigate("/");
     }
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate, draft]);
+  }, [navigate]);
 
-  function handleCreatePlaceholder() {
-    if (!draft.razonSocial.trim()) {
-      alert("Ingresá Razón Social (placeholder).");
-      razonRef.current?.focus();
-      return;
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch(query ? `/clients?q=${encodeURIComponent(query)}` : "/clients");
+      setItems(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err?.message ?? "Error cargando clientes");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    // Placeholder: después esto va a pegarle al backend /clients
-    console.log("CREATE CLIENT (placeholder):", draft);
-    alert(`Cliente creado (placeholder): ${draft.razonSocial}`);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
-    setDraft({ razonSocial: "", cuit: "", tipoPersona: "JURIDICA" });
-    razonRef.current?.focus();
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    try {
+      const payload: any = {
+        razonSocial: form.razonSocial.trim(),
+      };
+      if (form.cuit.trim()) payload.cuit = form.cuit.trim();
+      if (form.tipoPersona) payload.tipoPersona = form.tipoPersona;
+
+      await apiFetch("/clients", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setForm({ razonSocial: "", cuit: "", tipoPersona: "" });
+      await load();
+    } catch (err: any) {
+      setError(err?.message ?? "Error creando cliente");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEdit(c: Client) {
+    setEditingId(c.id);
+    setEditForm({
+      razonSocial: c.razonSocial ?? "",
+      cuit: c.cuit ?? "",
+      tipoPersona: (c.tipoPersona as any) ?? "",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm({ razonSocial: "", cuit: "", tipoPersona: "" });
+  }
+
+  async function saveEdit(id: string) {
+    setSaving(true);
+    setError(null);
+
+    try {
+      const payload: any = {};
+      if (editForm.razonSocial.trim()) payload.razonSocial = editForm.razonSocial.trim();
+
+      // si lo dejás vacío, mandamos null para limpiar
+      payload.cuit = editForm.cuit.trim() ? editForm.cuit.trim() : null;
+
+      // si lo dejás vacío, mandamos null para limpiar
+      payload.tipoPersona = editForm.tipoPersona ? editForm.tipoPersona : null;
+
+      await apiFetch(`/clients/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+
+      cancelEdit();
+      await load();
+    } catch (err: any) {
+      setError(err?.message ?? "Error guardando cambios");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeClient(id: string) {
+    const ok = confirm("¿Seguro que querés borrar este cliente?");
+    if (!ok) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      await apiFetch(`/clients/${id}`, { method: "DELETE" });
+      await load();
+    } catch (err: any) {
+      setError(err?.message ?? "Error borrando cliente");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        padding: 16,
-        fontFamily: "system-ui",
-        background: "#fafafa",
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: 980 }}>
-        {/* Top bar */}
-        <div
-          style={{
-            background: "white",
-            border: "1px solid #e5e5e5",
-            borderRadius: 16,
-            padding: 16,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-          }}
+    <div style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "system-ui" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+        <h2 style={{ margin: 0 }}>ABM Clientes</h2>
+        <button onClick={() => navigate("/")} title="Escape también vuelve">
+          Volver al menú (Esc)
+        </button>
+      </div>
+
+      <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          placeholder="Buscar por razón social o CUIT…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{ flex: 1, padding: 8 }}
+        />
+        <button onClick={() => load()} disabled={loading}>
+          Buscar
+        </button>
+      </div>
+
+      <hr style={{ margin: "16px 0" }} />
+
+      <form onSubmit={handleCreate} style={{ display: "grid", gap: 10 }}>
+        <h3 style={{ margin: 0 }}>Nuevo cliente</h3>
+
+        <input
+          placeholder="Razón social (obligatorio)"
+          value={form.razonSocial}
+          onChange={(e) => setForm((s) => ({ ...s, razonSocial: e.target.value }))}
+          style={{ padding: 8 }}
+        />
+
+        <input
+          placeholder="CUIT (opcional)"
+          value={form.cuit}
+          onChange={(e) => setForm((s) => ({ ...s, cuit: e.target.value }))}
+          style={{ padding: 8 }}
+        />
+
+        <select
+          value={form.tipoPersona}
+          onChange={(e) => setForm((s) => ({ ...s, tipoPersona: e.target.value as any }))}
+          style={{ padding: 8 }}
         >
-          <div>
-            <h2 style={{ margin: 0 }}>ABM Clientes</h2>
-            <div style={{ marginTop: 6, color: "#777", fontSize: 14 }}>
-              Atajos: <b>Esc</b> volver · <b>1</b> foco Razón Social · <b>Ctrl+Enter</b> crear
-            </div>
-          </div>
+          <option value="">Tipo persona (opcional)</option>
+          <option value="JURIDICA">Jurídica</option>
+          <option value="FISICA">Física</option>
+        </select>
 
-          <button
-            onClick={() => navigate("/")}
-            style={{
-              height: 38,
-              padding: "0 14px",
-              borderRadius: 10,
-              border: "1px solid #ddd",
-              background: "white",
-              cursor: "pointer",
-            }}
-          >
-            Volver (Esc)
-          </button>
-        </div>
+        <button type="submit" disabled={saving || !form.razonSocial.trim()}>
+          {saving ? "Guardando..." : "Crear cliente"}
+        </button>
 
-        {/* Main grid */}
-        <div
-          style={{
-            marginTop: 14,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 14,
-          }}
-        >
-          {/* Crear cliente */}
-          <div
-            style={{
-              background: "white",
-              border: "1px solid #e5e5e5",
-              borderRadius: 16,
-              padding: 16,
-            }}
-          >
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Nuevo cliente (placeholder)</div>
+        {error && <div style={{ color: "crimson" }}>{error}</div>}
+      </form>
 
-            <div style={{ display: "grid", gap: 10 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#555" }}>Razón social</span>
-                <input
-                  ref={razonRef}
-                  value={draft.razonSocial}
-                  onChange={(e) => setDraft((d) => ({ ...d, razonSocial: e.target.value }))}
-                  placeholder="Ej: VAL BIS S.A."
-                  style={{
-                    height: 38,
-                    padding: "0 12px",
-                    borderRadius: 10,
-                    border: "1px solid #ddd",
-                    outline: "none",
-                  }}
-                />
-              </label>
+      <hr style={{ margin: "16px 0" }} />
 
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#555" }}>CUIT (opcional)</span>
-                <input
-                  value={draft.cuit}
-                  onChange={(e) => setDraft((d) => ({ ...d, cuit: e.target.value }))}
-                  placeholder="Ej: 30-70905673-1"
-                  style={{
-                    height: 38,
-                    padding: "0 12px",
-                    borderRadius: 10,
-                    border: "1px solid #ddd",
-                    outline: "none",
-                  }}
-                />
-              </label>
+      <h3 style={{ marginTop: 0 }}>Listado</h3>
 
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#555" }}>Tipo de persona</span>
-                <select
-                  value={draft.tipoPersona}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, tipoPersona: e.target.value as DraftClient["tipoPersona"] }))
-                  }
-                  style={{
-                    height: 38,
-                    padding: "0 12px",
-                    borderRadius: 10,
-                    border: "1px solid #ddd",
-                    outline: "none",
-                    background: "white",
-                  }}
-                >
-                  <option value="JURIDICA">Jurídica</option>
-                  <option value="FISICA">Física</option>
-                </select>
-              </label>
+      {loading ? (
+        <p>Cargando…</p>
+      ) : items.length === 0 ? (
+        <p>No hay clientes.</p>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {items.map((c) => {
+            const isEditing = editingId === c.id;
 
-              <button
-                onClick={handleCreatePlaceholder}
+            return (
+              <div
+                key={c.id}
                 style={{
-                  height: 40,
-                  borderRadius: 12,
                   border: "1px solid #ddd",
-                  background: "white",
-                  cursor: "pointer",
-                  fontWeight: 700,
+                  borderRadius: 10,
+                  padding: 12,
+                  display: "grid",
+                  gap: 8,
                 }}
               >
-                Crear (placeholder)
-              </button>
-            </div>
-          </div>
+                {!isEditing ? (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <strong>{c.razonSocial}</strong>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => startEdit(c)} disabled={saving}>
+                          Editar
+                        </button>
+                        <button onClick={() => removeClient(c.id)} disabled={saving}>
+                          Borrar
+                        </button>
+                      </div>
+                    </div>
 
-          {/* Lista (placeholder) */}
-          <div
-            style={{
-              background: "white",
-              border: "1px solid #e5e5e5",
-              borderRadius: 16,
-              padding: 16,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontWeight: 900 }}>Listado (placeholder)</div>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar… (placeholder)"
-                style={{
-                  height: 34,
-                  padding: "0 12px",
-                  borderRadius: 10,
-                  border: "1px solid #ddd",
-                  outline: "none",
-                  minWidth: 220,
-                }}
-              />
-            </div>
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      <span>CUIT: {c.cuit ?? "-"}</span>
+                      <span>Tipo: {c.tipoPersona ?? "-"}</span>
+                    </div>
 
-            <div style={{ marginTop: 12, color: "#666", fontSize: 14, lineHeight: 1.4 }}>
-              Acá va a ir la tabla real conectada a la DB (<code>/clients</code>).
-              <br />
-              Por ahora dejamos una maqueta.
-            </div>
+                    <small style={{ opacity: 0.7 }}>
+                      ID: {c.id} · Actualizado: {new Date(c.updatedAt).toLocaleString()}
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <strong>Editando</strong>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => saveEdit(c.id)} disabled={saving || !editForm.razonSocial.trim()}>
+                          Guardar
+                        </button>
+                        <button onClick={cancelEdit} disabled={saving}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
 
-            <div
-              style={{
-                marginTop: 14,
-                border: "1px dashed #bbb",
-                borderRadius: 14,
-                padding: 14,
-                color: "#777",
-                fontSize: 14,
-              }}
-            >
-              <div style={{ fontWeight: 800, color: "#555" }}>Ejemplos que vamos a mostrar</div>
-              <ul style={{ margin: "10px 0 0 18px" }}>
-                <li>VAL BIS S.A. — 30-70905673-1</li>
-                <li>SODERIA RIENZO — 30-71407455-1</li>
-                <li>DI IORIO, LAURA — (sin CUIT)</li>
-              </ul>
+                    <input
+                      value={editForm.razonSocial}
+                      onChange={(e) => setEditForm((s) => ({ ...s, razonSocial: e.target.value }))}
+                      style={{ padding: 8 }}
+                    />
+                    <input
+                      value={editForm.cuit}
+                      onChange={(e) => setEditForm((s) => ({ ...s, cuit: e.target.value }))}
+                      style={{ padding: 8 }}
+                      placeholder="CUIT (vacío = limpiar)"
+                    />
+                    <select
+                      value={editForm.tipoPersona}
+                      onChange={(e) => setEditForm((s) => ({ ...s, tipoPersona: e.target.value as any }))}
+                      style={{ padding: 8 }}
+                    >
+                      <option value="">(vacío = limpiar)</option>
+                      <option value="JURIDICA">Jurídica</option>
+                      <option value="FISICA">Física</option>
+                    </select>
 
-              <div style={{ marginTop: 10, fontSize: 12 }}>
-                (Cuando esté el backend, el buscador filtra por razón social / CUIT.)
+                    {error && <div style={{ color: "crimson" }}>{error}</div>}
+                  </>
+                )}
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
-
-        <div style={{ marginTop: 14, color: "#888", fontSize: 12 }}>
-          Nota: el “Crear” ahora es placeholder. En el próximo paso lo conectamos a Prisma + endpoint protegido.
-        </div>
-      </div>
+      )}
     </div>
   );
 }

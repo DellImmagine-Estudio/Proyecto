@@ -5,28 +5,34 @@ import "dotenv/config";
 
 import prismaPlugin from "./plugins/prisma";
 import jwtPlugin from "./plugins/jwt";
-import { authRoutes } from "./routes/auth"; // (o el nombre que uses)
+import { authRoutes } from "./routes/auth";
+import { clientsRoutes } from "./routes/clients"; // si ya lo creaste
 
 const app = Fastify({ logger: true });
 
-// IMPORTANTE: para cookies, CORS debe permitir credentials
+// 1) plugins globales
 await app.register(cors, {
-  origin: ["http://localhost:5173"], // tu Vite
+  origin: ["http://localhost:5173"],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 });
+
 
 await app.register(cookie, {
   secret: process.env.COOKIE_SECRET,
 });
 
+// 2) plugins de app
 await app.register(prismaPlugin);
 await app.register(jwtPlugin);
 
+// 3) rutas
 await app.register(authRoutes);
+await app.register(clientsRoutes);
 
-app.get("/health", async () => {
-  return { ok: true, service: "caja-server" };
-});
+// 4) rutas sueltas (si querés)
+app.get("/health", async () => ({ ok: true, service: "caja-server" }));
 
+// 5) listen AL FINAL
 const PORT = Number(process.env.PORT ?? 3001);
 await app.listen({ port: PORT, host: "0.0.0.0" });
