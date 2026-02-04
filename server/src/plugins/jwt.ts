@@ -10,7 +10,6 @@ declare module "@fastify/jwt" {
   }
 }
 
-
 const jwtPlugin: FastifyPluginAsync = async (app) => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -19,15 +18,23 @@ const jwtPlugin: FastifyPluginAsync = async (app) => {
 
   await app.register(jwt, { secret });
 
-  // middleware reusable
+  // middleware reusable: lee cookie httpOnly o Bearer (fallback para tests)
   app.decorate("authenticate", async (request: any, reply: any) => {
     try {
-      await request.jwtVerify();
+      const cookieToken = request.cookies?.access_token as string | undefined;
+      const auth = request.headers.authorization as string | undefined;
+      const bearerToken =
+        auth && auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : undefined;
+
+      const token = cookieToken || bearerToken;
+      if (!token) return reply.status(401).send({ error: "unauthorized" });
+
+      // Verificamos explícitamente el token (en vez de depender del header)
+      request.user = app.jwt.verify(token);
     } catch (err) {
       return reply.status(401).send({ error: "unauthorized" });
     }
   });
 };
-
 
 export default fp(jwtPlugin);
