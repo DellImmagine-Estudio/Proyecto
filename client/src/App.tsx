@@ -3,33 +3,38 @@ import { useAuth } from "./auth/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
+import ClientsPage from "./pages/ClientsPage";
 
 export default function App() {
   const { me, loading, login, logout } = useAuth();
 
-  if (loading) {
-    return <p style={{ padding: 30, fontFamily: "system-ui" }}>Cargando…</p>;
-  }
+  if (loading) return <p style={{ padding: 30 }}>Cargando…</p>;
 
   return (
     <Routes>
-      {/* Login */}
       <Route
         path="/login"
         element={me ? <Navigate to="/" replace /> : <LoginPage onLogin={login} />}
       />
 
-      {/* Dashboard protegido */}
       <Route
         path="/"
         element={
           <ProtectedRoute me={me}>
-            {me ? <Dashboard me={me} onLogout={logout} /> : null}
+            <Dashboard me={me!} onLogout={logout} />
           </ProtectedRoute>
         }
       />
 
-      {/* Fallback */}
+      <Route
+        path="/clients"
+        element={
+          <ProtectedRoute me={me}>
+            <ClientsPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to={me ? "/" : "/login"} replace />} />
     </Routes>
   );

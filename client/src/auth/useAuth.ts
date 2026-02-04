@@ -1,52 +1,46 @@
 import { useEffect, useState } from "react";
-import { apiFetch, clearToken, getToken, setToken } from "../api";
+import { apiFetch } from "../api";
 
-export type Me = {
-  sub: string;
+type MeUser = {
+  id: string;
   email: string;
-  iat: number;
-  exp: number;
+  createdAt: string;
 };
 
 export function useAuth() {
-  const [me, setMe] = useState<Me | null>(null);
+  const [me, setMe] = useState<MeUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadMe() {
-    setLoading(true);
-    try {
-      if (!getToken()) {
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await apiFetch("/auth/me");
+        setMe(r.user as MeUser);
+      } catch {
         setMe(null);
-        return;
+      } finally {
+        setLoading(false);
       }
-      const res = await apiFetch("/auth/me");
-      setMe(res.user);
-    } catch {
-      clearToken();
-      setMe(null);
-    } finally {
-      setLoading(false);
-    }
-  }
+    })();
+  }, []);
 
   async function login(email: string, password: string) {
-    const res = await apiFetch("/auth/login", {
+    const r = await apiFetch("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    setToken(res.token);
-    await loadMe();
+
+    // backend ahora NO devuelve token, devuelve { ok, user }
+    setMe(r.user as MeUser);
   }
 
-  function logout() {
-    clearToken();
-    setMe(null);
+  async function logout() {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } finally {
+      setMe(null);
+    }
   }
 
-  useEffect(() => {
-    loadMe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { me, loading, login, logout, reload: loadMe };
+  return { me, loading, login, logout };
 }
