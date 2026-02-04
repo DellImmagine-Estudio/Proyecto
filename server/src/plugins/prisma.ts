@@ -2,6 +2,7 @@ import fp from "fastify-plugin";
 import type { FastifyPluginAsync } from "fastify";
 import { prisma } from "../db";
 
+
 const prismaPlugin: FastifyPluginAsync = async (app) => {
   app.decorate("prisma", prisma);
 
