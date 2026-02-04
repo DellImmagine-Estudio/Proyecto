@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api";
 
-type MeUser = {
+export type MeUser = {
   id: string;
   email: string;
+  role: "ADMIN" | "USER";
   createdAt: string;
 };
 
@@ -11,17 +12,20 @@ export function useAuth() {
   const [me, setMe] = useState<MeUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function refreshMe() {
+    try {
+      const r = await apiFetch("/auth/me");
+      setMe(r.user as MeUser);
+    } catch {
+      setMe(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await apiFetch("/auth/me");
-        setMe(r.user as MeUser);
-      } catch {
-        setMe(null);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    refreshMe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function login(email: string, password: string) {
@@ -30,7 +34,7 @@ export function useAuth() {
       body: JSON.stringify({ email, password }),
     });
 
-    // backend ahora NO devuelve token, devuelve { ok, user }
+    // backend devuelve { ok, user } y setea cookie httpOnly
     setMe(r.user as MeUser);
   }
 
@@ -42,5 +46,5 @@ export function useAuth() {
     }
   }
 
-  return { me, loading, login, logout };
+  return { me, loading, login, logout, refreshMe };
 }

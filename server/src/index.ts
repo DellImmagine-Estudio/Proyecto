@@ -5,6 +5,8 @@ import "dotenv/config";
 
 import prismaPlugin from "./plugins/prisma";
 import jwtPlugin from "./plugins/jwt";
+
+import { adminUsersRoutes } from "./routes/adminUsers";
 import { authRoutes } from "./routes/auth";
 import { clientsRoutes } from "./routes/clients"; // si ya lo creaste
 
@@ -29,6 +31,8 @@ await app.register(jwtPlugin);
 // 3) rutas
 await app.register(authRoutes);
 await app.register(clientsRoutes);
+
+await app.register(adminUsersRoutes);
 
 // 4) rutas sueltas (si querés)
 app.get("/health", async () => ({ ok: true, service: "caja-server" }));

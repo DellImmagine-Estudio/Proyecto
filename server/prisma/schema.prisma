@@ -6,21 +6,33 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum TipoPersona {
+  JURIDICA
+  FISICA
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   password  String
+  role      UserRole @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  clients   Client[]
 }
 
 model Client {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   userId      String
-
   razonSocial String
   cuit        String?
-  tipoPersona String? // "JURIDICA" | "FISICA" (MVP)
+  tipoPersona TipoPersona?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

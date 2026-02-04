@@ -51,19 +51,25 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // ME -> valida cookie/header y devuelve user real desde DB
-  app.get("/auth/me", { preHandler: app.authenticate }, async (request: any, reply) => {
-    const userId = request.user?.sub;
-    if (!userId) return reply.status(401).send({ error: "unauthorized" });
+ app.get("/auth/me", { preHandler: app.authenticate }, async (request: any, reply) => {
+  const userId = request.user?.sub;
+  if (!userId) return reply.status(401).send({ error: "unauthorized" });
 
-    const user = await app.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, createdAt: true },
-    });
-
-    if (!user) {
-      return reply.status(401).send({ error: "unauthorized" });
-    }
-
-    return reply.send({ ok: true, user });
+  const user = await app.prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      createdAt: true,
+    },
   });
+
+  if (!user) {
+    return reply.status(401).send({ error: "unauthorized" });
+  }
+
+  return reply.send({ ok: true, user });
+});
+
 }
