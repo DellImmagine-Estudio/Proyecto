@@ -9,6 +9,9 @@ import jwtPlugin from "./plugins/jwt";
 import { adminUsersRoutes } from "./routes/adminUsers";
 import { authRoutes } from "./routes/auth";
 import { clientsRoutes } from "./routes/clients"; // si ya lo creaste
+import { accountsRoutes } from "./routes/accounts";
+
+
 
 const app = Fastify({ logger: true });
 
@@ -34,6 +37,7 @@ await app.register(clientsRoutes);
 
 await app.register(adminUsersRoutes);
 
+await app.register(accountsRoutes, { prefix: "/api" });
 // 4) rutas sueltas (si querés)
 app.get("/health", async () => ({ ok: true, service: "caja-server" }));
 
