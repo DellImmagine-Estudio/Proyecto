@@ -19,6 +19,18 @@ export default function AdminPage({ me }: { me: { role: "ADMIN" | "USER" } }) {
     if (me.role !== "ADMIN") nav("/", { replace: true });
   }, [me.role, nav]);
 
+  // Hotkey: ESC volver (ADMIN vuelve a /admin o /login? acá lo mando a /admin hub)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        nav("/admin", { replace: true });
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [nav]);
+
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +45,9 @@ export default function AdminPage({ me }: { me: { role: "ADMIN" | "USER" } }) {
     setLoadingUsers(true);
     setError(null);
     try {
-      const r = await apiFetch("/admin/users");
-      setUsers(r.users as AdminUser[]);
+      // ⚠️ Si tu backend usa /api/admin/users, cambiá a "/api/admin/users"
+      const r = await apiFetch<{ users: AdminUser[] }>("/admin/users");
+      setUsers(r.users);
     } catch (e: any) {
       setError(e?.message ?? "Error cargando usuarios");
     } finally {
@@ -54,7 +67,8 @@ export default function AdminPage({ me }: { me: { role: "ADMIN" | "USER" } }) {
     setError(null);
 
     try {
-      const r = await apiFetch("/admin/users", {
+      // ⚠️ Si tu backend usa /api/admin/users, cambiá a "/api/admin/users"
+      const r = await apiFetch<{ user: AdminUser }>("/admin/users", {
         method: "POST",
         body: JSON.stringify({ email, password, role }),
       });
@@ -89,12 +103,14 @@ export default function AdminPage({ me }: { me: { role: "ADMIN" | "USER" } }) {
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: 12,
+          gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <div>
           <h2 style={{ margin: 0 }}>Admin Panel</h2>
           <p style={{ margin: "6px 0 0", opacity: 0.8 }}>
-            Gestión de usuarios (solo ADMIN)
+            Gestión de usuarios (solo ADMIN) · <b>ESC</b> vuelve
           </p>
         </div>
 
@@ -114,16 +130,12 @@ export default function AdminPage({ me }: { me: { role: "ADMIN" | "USER" } }) {
 
       {/* Mensajes */}
       {msg && (
-        <div
-          style={{ padding: 10, marginBottom: 12, border: "1px solid #ccc" }}
-        >
+        <div style={{ padding: 10, marginBottom: 12, border: "1px solid #ccc" }}>
           {msg}
         </div>
       )}
       {error && (
-        <div
-          style={{ padding: 10, marginBottom: 12, border: "1px solid #f99" }}
-        >
+        <div style={{ padding: 10, marginBottom: 12, border: "1px solid #f99" }}>
           ❌ {error}
         </div>
       )}
@@ -198,14 +210,12 @@ export default function AdminPage({ me }: { me: { role: "ADMIN" | "USER" } }) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
           }}
         >
           <h3 style={{ marginTop: 0 }}>Usuarios</h3>
-          <button
-            onClick={loadUsers}
-            disabled={loadingUsers}
-            style={{ padding: "8px 10px" }}
-          >
+          <button onClick={loadUsers} disabled={loadingUsers} style={{ padding: "8px 10px" }}>
             {loadingUsers ? "Actualizando..." : "Refrescar"}
           </button>
         </div>
@@ -213,54 +223,28 @@ export default function AdminPage({ me }: { me: { role: "ADMIN" | "USER" } }) {
         {loadingUsers ? (
           <p>Cargando...</p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #eee",
-                    padding: 8,
-                  }}
-                >
-                  Email
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #eee",
-                    padding: 8,
-                  }}
-                >
-                  Rol
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #eee",
-                    padding: 8,
-                  }}
-                >
-                  Creado
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedUsers.map((u) => (
-                <tr key={u.id}>
-                  <td style={{ borderBottom: "1px solid #f3f3f3", padding: 8 }}>
-                    {u.email}
-                  </td>
-                  <td style={{ borderBottom: "1px solid #f3f3f3", padding: 8 }}>
-                    {u.role}
-                  </td>
-                  <td style={{ borderBottom: "1px solid #f3f3f3", padding: 8 }}>
-                    {new Date(u.createdAt).toLocaleString()}
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 8 }}>Email</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 8 }}>Rol</th>
+                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 8 }}>Creado</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sortedUsers.map((u) => (
+                  <tr key={u.id}>
+                    <td style={{ borderBottom: "1px solid #f3f3f3", padding: 8 }}>{u.email}</td>
+                    <td style={{ borderBottom: "1px solid #f3f3f3", padding: 8 }}>{u.role}</td>
+                    <td style={{ borderBottom: "1px solid #f3f3f3", padding: 8 }}>
+                      {new Date(u.createdAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

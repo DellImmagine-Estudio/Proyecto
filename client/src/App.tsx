@@ -1,9 +1,11 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./auth/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
+
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
 import ClientsPage from "./pages/ClientsPage";
+import AccountsPage from "./pages/AccountsPage";
 import AdminPage from "./pages/AdminPage";
 
 export default function App() {
@@ -33,12 +35,12 @@ export default function App() {
         path="/admin"
         element={
           <ProtectedRoute me={me}>
-            <AdminPage me={me!} />
+            {isAdmin ? <AdminPage me={me!} /> : <Navigate to="/" replace />}
           </ProtectedRoute>
         }
       />
 
-      {/* APP NORMAL (bloqueada para ADMIN) */}
+      {/* DASHBOARD PRINCIPAL (solo usuarios normales) */}
       <Route
         path="/"
         element={
@@ -52,6 +54,7 @@ export default function App() {
         }
       />
 
+      {/* CLIENTES */}
       <Route
         path="/clients"
         element={
@@ -61,14 +64,22 @@ export default function App() {
         }
       />
 
+      {/* CUENTAS */}
+      <Route
+        path="/accounts"
+        element={
+          <ProtectedRoute me={me}>
+            {isAdmin ? <Navigate to="/admin" replace /> : <AccountsPage />}
+          </ProtectedRoute>
+        }
+      />
+
       {/* FALLBACK */}
       <Route
         path="*"
         element={
           <Navigate
-            to={
-              isAuthed ? (isAdmin ? "/admin" : "/") : "/login"
-            }
+            to={isAuthed ? (isAdmin ? "/admin" : "/") : "/login"}
             replace
           />
         }

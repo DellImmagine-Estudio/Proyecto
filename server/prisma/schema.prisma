@@ -16,16 +16,25 @@ enum TipoPersona {
   FISICA
 }
 
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      UserRole @default(USER)
+  id       String   @id @default(cuid())
+  email    String   @unique
+  password String
+  role     UserRole @default(USER)
+
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   clients  Client[]
-  accounts Account[] // 👈 opcional pero recomendado (cuentas propias por user)
+  accounts Account[] // ✅ RELACIÓN INVERSA PARA Account.user
 }
 
 model Client {
@@ -40,7 +49,7 @@ model Client {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  accounts Account[] // 👈 RELACIÓN INVERSA NECESARIA
+  accounts Account[] // ✅ RELACIÓN INVERSA PARA Account.client
 
   @@unique([userId, cuit])
   @@index([userId])
@@ -61,9 +70,9 @@ model Account {
   type     AccountType
   isActive Boolean     @default(true)
 
-  // Si la cuenta es CLIENT, puede vincularse a un cliente
+  // Si la cuenta es CLIENT, puede vincularse a un cliente (opcional)
   clientId String?
-  client   Client? @relation(fields: [clientId], references: [id]) // ✅ sin Cascade
+  client   Client? @relation(fields: [clientId], references: [id]) // ✅ (sin cascade está bien)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

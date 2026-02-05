@@ -1,28 +1,34 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL ?? "";
 
-export async function apiFetch(path: string, options: RequestInit = {}) {
-  const headers = new Headers(options.headers);
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const hasBody = init.body !== undefined && init.body !== null;
 
-  // Setear Content-Type solo si hay body y NO es FormData
-  const hasBody = typeof options.body !== "undefined" && options.body !== null;
-  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
-
-  if (hasBody && !isFormData && !headers.has("Content-Type")) {
+  const headers = new Headers(init.headers ?? {});
+  // ✅ Solo seteamos JSON si realmente hay body
+  if (hasBody && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const res = await fetch(`${API_URL}${path}`, {
-    ...options,
+    ...init,
     headers,
     credentials: "include",
   });
 
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-
   if (!res.ok) {
-    throw new Error(data?.error ?? `HTTP ${res.status}`);
+    let msg = `HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      msg = data?.error ?? data?.message ?? msg;
+    } catch {}
+    throw new Error(msg);
   }
 
-  return data;
+  // ✅ Por si algún endpoint devuelve 204 No Content
+  if (res.status === 204) return undefined as T;
+
+  return res.json() as Promise<T>;
 }
+
+// opcional: compat
+export const api = apiFetch;

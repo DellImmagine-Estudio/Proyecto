@@ -26,13 +26,19 @@ export default function Dashboard({ me, onLogout }: Props) {
     },
     {
       key: "2",
+      title: "ABM CUENTAS",
+      description: "Caja / Bancos (alta, baja, modificación)",
+      path: "/accounts",
+    },
+    {
+      key: "3",
       title: "CAJA DEL ESTUDIO (próximo)",
       description: "Movimientos / Saldos / Honorarios",
       path: "/cashbox",
       disabled: true,
     },
     {
-      key: "3",
+      key: "4",
       title: "LIQUIDACIONES (próximo)",
       description: "Estados mensuales + recibos",
       path: "/payroll",
@@ -93,7 +99,7 @@ export default function Dashboard({ me, onLogout }: Props) {
               Logueado como <b>{me.email}</b>
             </div>
             <div style={{ marginTop: 6, color: "#777", fontSize: 14 }}>
-              Atajos: presioná <b>1</b>, <b>2</b>, <b>3</b>…
+              Atajos: presioná <b>1</b>, <b>2</b>, <b>3</b>, <b>4</b>…
             </div>
           </div>
 
@@ -170,7 +176,7 @@ export default function Dashboard({ me, onLogout }: Props) {
         </div>
 
         <div style={{ marginTop: 16, color: "#888", fontSize: 12 }}>
-          Tip: cuando estemos avanzados, este menú va a ser el “hub” del sistema (clientes, caja, liquidaciones).
+          Tip: cuando estemos avanzados, este menú va a ser el “hub” del sistema (clientes, cuentas, caja, liquidaciones).
         </div>
       </div>
     </div>
